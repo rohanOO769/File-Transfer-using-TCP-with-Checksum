@@ -1,20 +1,23 @@
-# server2.py
+# Server/server.py
 
-#!/usr/bin/env python3
 import socket
 import threading
 import struct
 import hashlib
 import random
 import sys
+import time
+import os
 
-CHUNK_SIZE = 1024  # bytes
 SERVER_HOST = '0.0.0.0'
 SERVER_PORT = 5001
 
 # Error simulation parameters (for initial transmission only)
 DROP_PROB = 0.2      # 20% chance to drop a chunk
 CORRUPT_PROB = 0.1   # 10% chance to corrupt a chunk
+
+server_folder = "server_data"
+os.makedirs(server_folder, exist_ok=True)
 
 # ---------------------------
 # Helper functions for framing messages
@@ -83,19 +86,30 @@ def handle_client(conn: socket.socket, addr):
         if file_data is None:
             print("[-] No data received. Closing connection.")
             return
-        print(f"[{addr}] Received file of {len(file_data)} bytes.")
+        file_size = len(file_data)
+        print(f"[{addr}] Received file of {file_size} bytes.")
 
-        # 2. Compute the file checksum (SHA256) and prepare header.
+        # Determine dynamic chunk size based on file size.
+        # If file > 100 MB, using 1 MB chunks; otherwise, 1024-byte chunks.
+        if file_size > 100 * 1024 * 1024:
+            chunk_size = 1024 * 1024  # 1 MB
+            print(f"[{addr}] File size > 100 MB, using chunk size: {chunk_size} bytes")
+        else:
+            chunk_size = 1024
+            print(f"[{addr}] File size <= 100 MB, using default chunk size: {chunk_size} bytes")
+        # Can Add more cases wtr to file sizes
+
+        # 2. file computing checksum (SHA256) and preparing header.
         file_checksum = hashlib.sha256(file_data).hexdigest().encode()  # 64-byte ascii hex
         print(f"[{addr}] Computed file SHA256: {file_checksum.decode()}")
 
-        # 3. Split the file into chunks and prepare chunk messages.
-        total_chunks = (len(file_data) + CHUNK_SIZE - 1) // CHUNK_SIZE
-        stored_chunks = {}   # Store correct chunk messages for potential retransmission.
-        chunk_messages = []  # List of all chunk messages (to be shuffled).
+        # 3. Spliting the file into chunks using the dynamic chunk size.
+        total_chunks = (file_size + chunk_size - 1) // chunk_size
+        stored_chunks = {}   # Storing the correct chunk messages for potential retransmission.
+        chunk_messages = []  # Listing of all chunk messages (to be shuffled).
         for seq in range(total_chunks):
-            start = seq * CHUNK_SIZE
-            end = start + CHUNK_SIZE
+            start = seq * chunk_size
+            end = start + chunk_size
             chunk_data = file_data[start:end]
             # Compute per-chunk hash (raw 32-byte digest)
             chash = hashlib.sha256(chunk_data).digest()
@@ -104,7 +118,7 @@ def handle_client(conn: socket.socket, addr):
             stored_chunks[seq] = chunk_msg
             chunk_messages.append(chunk_msg)
 
-        # 4. Send header to client: total_chunks (4 bytes) + file_checksum (64 bytes).
+        # 4. Sending header to client: total_chunks (4 bytes) + file_checksum (64 bytes).
         header_msg = struct.pack("!I", total_chunks) + file_checksum
         send_msg(conn, header_msg)
         print(f"[{addr}] Sent header: total_chunks={total_chunks}, file_checksum={file_checksum.decode()}")
@@ -116,7 +130,6 @@ def handle_client(conn: socket.socket, addr):
         for chunk_msg in chunk_messages:
             simulated = maybe_simulate_error(chunk_msg, simulate_error=True)
             if simulated is None:
-                # Simulate drop: log and do not send this chunk.
                 seq = struct.unpack("!I", chunk_msg[:4])[0]
                 print(f"[{addr}] Dropped chunk {seq} (simulated).")
                 continue
@@ -149,6 +162,12 @@ def handle_client(conn: socket.socket, addr):
                     rounds += 1
                 elif req_msg == b"DONE":
                     print(f"[{addr}] Client indicates completion.")
+
+                    # Create a unique filename based on the client address and current timestamp
+                    server_filename = os.path.join(server_folder, f"received_{addr[0]}_{int(time.time())}.bin")
+                    with open(server_filename, "wb") as f:
+                        f.write(file_data)
+                    print(f"[{addr}] Saved received file to {server_filename}")
                     break
                 else:
                     print(f"[{addr}] Unknown message type received: {req_msg[:10]}")
@@ -166,18 +185,24 @@ def handle_client(conn: socket.socket, addr):
 # Main server loop
 # ---------------------------
 def main():
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.bind((SERVER_HOST, SERVER_PORT))
-        s.listen()
-        print(f"[*] Server listening on {SERVER_HOST}:{SERVER_PORT}")
-        while True:
-            conn, addr = s.accept()
-            client_thread = threading.Thread(target=handle_client, args=(conn, addr), daemon=True)
-            client_thread.start()
-
-if __name__ == "__main__":
     try:
-        main()
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.bind((SERVER_HOST, SERVER_PORT))
+            s.listen()
+            s.settimeout(1.0)
+            print(f"[*] Server listening on {SERVER_HOST}:{SERVER_PORT}")
+
+            while True:
+                try:
+                    conn, addr = s.accept()
+                    client_thread = threading.Thread(target=handle_client, args=(conn, addr), daemon=True)
+                    client_thread.start()
+                except socket.timeout:
+                    continue
     except KeyboardInterrupt:
         print("\n[!] Server shutting down.")
-        sys.exit(0)
+    finally:
+        print("[*] Cleanup complete.")
+
+if __name__ == "__main__":
+    main()
