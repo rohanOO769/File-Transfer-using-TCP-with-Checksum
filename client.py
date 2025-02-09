@@ -1,6 +1,5 @@
-# client2.py
+# client.py
 
-#!/usr/bin/env python3
 import socket
 import struct
 import hashlib
@@ -10,7 +9,6 @@ import time
 
 SERVER_HOST = '127.0.0.1'
 SERVER_PORT = 5001
-CHUNK_SIZE = 1024  # must match server
 
 # ---------------------------
 # Helper functions for message framing
