@@ -1,4 +1,4 @@
-# server.py
+# Server/server.py
 
 import socket
 import threading
@@ -6,6 +6,8 @@ import struct
 import hashlib
 import random
 import sys
+import time
+import os
 
 SERVER_HOST = '0.0.0.0'
 SERVER_PORT = 5001
@@ -13,6 +15,9 @@ SERVER_PORT = 5001
 # Error simulation parameters (for initial transmission only)
 DROP_PROB = 0.2      # 20% chance to drop a chunk
 CORRUPT_PROB = 0.1   # 10% chance to corrupt a chunk
+
+server_folder = "server_data"
+os.makedirs(server_folder, exist_ok=True)
 
 # ---------------------------
 # Helper functions for framing messages
@@ -157,6 +162,12 @@ def handle_client(conn: socket.socket, addr):
                     rounds += 1
                 elif req_msg == b"DONE":
                     print(f"[{addr}] Client indicates completion.")
+
+                    # Create a unique filename based on the client address and current timestamp
+                    server_filename = os.path.join(server_folder, f"received_{addr[0]}_{int(time.time())}.bin")
+                    with open(server_filename, "wb") as f:
+                        f.write(file_data)
+                    print(f"[{addr}] Saved received file to {server_filename}")
                     break
                 else:
                     print(f"[{addr}] Unknown message type received: {req_msg[:10]}")

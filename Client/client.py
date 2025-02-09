@@ -1,4 +1,4 @@
-# client.py
+# Client/client.py
 
 import socket
 import struct
@@ -9,6 +9,10 @@ import time
 
 SERVER_HOST = '127.0.0.1'
 SERVER_PORT = 5001
+
+# Save a copy
+client_folder = "client_data"
+os.makedirs(client_folder, exist_ok=True)
 
 # ---------------------------
 # Helper functions for message framing
@@ -143,7 +147,7 @@ def main(file_path):
 
         if missing:
             print(f"[-] Failed to receive all chunks after retransmission attempts: missing {missing}")
-        else:
+        if not missing:
             # 8. Reassemble the file.
             reassembled = b''.join(received_chunks[i] for i in sorted(received_chunks.keys()))
             print(f"[+] Reassembled file size: {len(reassembled)} bytes.")
@@ -152,6 +156,12 @@ def main(file_path):
             print(f"[+] Computed file checksum: {actual_file_checksum}")
             if actual_file_checksum == expected_file_checksum:
                 print("[*] Transfer Successful: Checksum verified!")
+                
+                
+                client_filename = os.path.join(client_folder, f"reassembled_{int(time.time())}.bin")
+                with open(client_filename, "wb") as f:
+                    f.write(reassembled)
+                print(f"[+] Saved reassembled file to {client_filename}")
             else:
                 print("[-] Transfer Failed: Checksum mismatch.")
 
