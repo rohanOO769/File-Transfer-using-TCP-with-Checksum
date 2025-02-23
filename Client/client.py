@@ -19,6 +19,7 @@ os.makedirs(client_folder, exist_ok=True)
 # ---------------------------
 def send_msg(sock, data: bytes):
     """Send a message preceded by its 4-byte length."""
+    # to encode the length in network byte order.
     msg_length = struct.pack("!I", len(data))
     sock.sendall(msg_length + data)
 
