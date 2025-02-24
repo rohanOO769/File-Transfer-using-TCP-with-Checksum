@@ -1,3 +1,5 @@
+// Simple server code which uses TCP over a Shared Memory
+
 // server.c
 
 #include <stdio.h>

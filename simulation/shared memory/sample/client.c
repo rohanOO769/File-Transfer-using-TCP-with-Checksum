@@ -1,3 +1,5 @@
+// Simple Client code which uses TCP over a Shared Memory
+
 // client.c
 
 #include <stdio.h>
