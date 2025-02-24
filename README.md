@@ -1,4 +1,4 @@
-# TCP based File Transfer with Checksum
+# TCP based File Transfer with Checksum and RSA Encryption
 
 ## Overview
 This project is a file transfer system that ensures reliable communication between a client and a server using **TCP sockets**. The system is designed to handle file transmission, retransmissions in case of packet loss, and provide a robust mechanism for data integrity verification.
@@ -89,9 +89,80 @@ The project includes **unit tests**, manual and using `pytest` to verify:
     - ✅ `test_server_receives_file`: Verifies the server correctly receives and stores the file.
 ![image](https://github.com/user-attachments/assets/be34bfcb-4784-4bfa-8c31-7c133b2c126e)
 
+---
+## TCP-UDP Hybrid Server
+![image](https://github.com/user-attachments/assets/64130951-a87b-4c56-89b8-66ea731851cc)
+### It Can be extended a SOC Surveillance System
+  - Control Channel (TCP):
+    - Use TCP for setting up connections, negotiating stream parameters, and sending control messages (e.g., pan/tilt commands, motion alerts, or video configuration).
+    - A TCP-based protocol can ensure that commands are reliably delivered and acknowledged.
+  - Data Channel (UDP):
+    - Use UDP for streaming live video feeds. Protocols like RTP (Real-Time Protocol) are commonly used in conjunction with UDP for streaming media.
+    - RTCP (Real-Time Control Protocol) can be used alongside RTP to provide feedback about the quality of the stream, which might then be used to request retransmissions (or adjustments) via the TCP channel if necessary.
+  - Example in Practice:
+    - RTSP/RTP Hybrid: Many IP cameras use RTSP (which runs over TCP) to establish and control the media session, and then stream video using RTP over UDP. RTSP handles session control (start, pause, teardown), while RTP is optimized for low-latency delivery of continuous streams.
+    - Enhanced Reliability: The system could also implement application-level FEC (Forward Error Correction) on the UDP stream. If a few packets are lost, the receiver can reconstruct the missing parts without needing to request retransmission immediately.
+    - Alternatively, if the system detects significant packet loss in UDP, it could signal over the TCP channel to adjust parameters (or even temporarily switch to a more reliable mode).
+
+---
+## Simulation in a Shared Memory Approach
+  - Dockekerized the environment for mimic Linux environment and smooth deployment
+    ![image](https://github.com/user-attachments/assets/0fb78d9c-b2ac-40ed-8971-90eb448c5ec8)
+  - Running the shared memory environment
+    - Start one container interactively
+      ![image](https://github.com/user-attachments/assets/4be64f43-e91b-4042-9c4e-cf7204a9563e)
+    - Open another shell in the same container using
+      ![image](https://github.com/user-attachments/assets/3598f067-ca6c-4db9-98c3-5bae3d2d6454)
+    - Create 4 bash shell
+      - 1 for manager_server
+      - 1 for the server
+      - 2 for the clients (can be more)
+
+![image](https://github.com/user-attachments/assets/312cd2e1-d850-4896-b82d-56aee2383ead)
+### The file is segmented into chunks and sent over the network.
+
+![image](https://github.com/user-attachments/assets/7ba7b857-2d08-4f09-b6fe-c05fb782b774)
+### Packet Loss and Packet Curruption has been simulated to mimic the actual network.
+
+
+
+---
+## Encryption process and Data Transfer
+### Create an RSA Key Pair
+- Generate these keys using OpenSSL on your host machine (or inside the container) with the following commands:
+- Generate the Private Key:
+  ```bash
+  openssl genrsa -out server_private.pem 2048
+  ```
+- This creates a 2048-bit RSA private key and saves it to server_private.pem.
+- Generate the Public Key:
+
+  ```bash
+  openssl rsa -in server_private.pem -pubout -out server_public.pem
+  ```
+- This extracts the public key from the private key and saves it to server_public.pem.
+
+### Key Transfer - RSA for Key Exchange
+  - Server RSA Key Pair: The server has an RSA key pair—a public key and a private key.
+  - Sending Public Key: When a client connects, the server sends its RSA public key to the client.
+  - Client Generates AES Key: The client generates a random 256‑bit AES key (and usually an initialization vector, IV).
+  - Encrypting the AES Key: The client encrypts this AES key using the server's RSA public key.
+  - Sending Encrypted AES Key: The client sends the RSA‑encrypted AES key to the server.
+  - Server Decrypts AES Key: The server uses its RSA private key to decrypt the encrypted AES key, and now both sides share the same AES key (and IV).
+### Data Transfer - AES for Data Encryption:
+  - Symmetric Encryption: Once the AES key is established, both client and server use it to encrypt and decrypt the actual file data (or any subsequent messages) using a symmetric algorithm (like AES‑256‑CBC).
+  - Efficiency: AES is fast and efficient for encrypting large amounts of data, which is why it’s used for the file transfer instead of RSA.
+  - IV Usage: The Initialization Vector (IV) ensures that identical plaintext blocks encrypt differently, improving security. The IV is typically sent in plaintext (or in a non-confidential manner) because it does not need to be secret—only unpredictable.
+
+
 ## Future Improvements
-- Implement a **UDP-based** protocol with selective acknowledgments.
 - Add a **web interface** for file upload/download.
 - Improve **test coverage** with integration tests.
-- **Dockerize** the client and server for better deployment.
+- Use ephemeral key exchanges (e.g., Diffie-Hellman/ECDHE) for forward secrecy.
+- Add HMAC or digital signatures for integrity and authenticity.
+- Implement certificate-based authentication.
+- Integrate compression before encryption.
+- Improve error correction beyond simple retransmission.
+- Add detailed logging and monitoring for security and performance.
+- Expand support for real-world network conditions.
 
