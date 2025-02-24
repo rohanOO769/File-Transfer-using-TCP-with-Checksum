@@ -1,7 +1,8 @@
 # TCP based File Transfer with Checksum and RSA Encryption
 
 ## Overview
-This project is a file transfer system that ensures reliable communication between a client and a server using **TCP sockets**. The system is designed to handle file transmission, retransmissions in case of packet loss, and provide a robust mechanism for data integrity verification.
+### This project is a file transfer system that ensures reliable communication between a client and a server using **TCP sockets**. The system is designed to handle file transmission, retransmissions in case of packet loss, and provide a robust mechanism for data integrity verification.
+### In the further part of the project there is TCP-UDP Hybrid server which runs on a shared memory and simulated the actual network including the packet loss and encryptions.
 
 ## Objective
 The goal was to develop and test a **client-server file transfer application**, ensuring:
